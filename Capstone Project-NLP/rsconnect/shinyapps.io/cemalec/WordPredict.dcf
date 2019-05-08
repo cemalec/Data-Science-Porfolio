@@ -1,0 +1,13 @@
+name: WordPredict
+title: WordPredict
+username:
+account: cemalec
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 813595
+bundleId: 2009699
+url: https://cemalec.shinyapps.io/WordPredict/
+when: 1555243423.58212
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: ArnoldsTongue2|aroldsTongue|testTree|WordPredictionAlgorithm.html|wordTree|wordTree2|wordTree3
