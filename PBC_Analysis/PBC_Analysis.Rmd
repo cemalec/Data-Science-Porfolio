@@ -1,0 +1,335 @@
+---
+title: "PBC Analysis"
+author: "Chris Malec"
+date: "2/15/2019"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(
+        echo = TRUE,
+        eval = TRUE,
+        message = FALSE,
+        error = TRUE,
+        warning = FALSE,
+        highlight = TRUE,
+        prompt = FALSE,
+        fig.width = 5, 
+        fig.height = 5, 
+        cache = TRUE
+        )
+```
+
+## Background
+
+The Data used was a Mayo Clinic sutdy of Primary Biliary Cirrhosis (PBC) done between 1974 and 1984.  The study was a randomized trial to test the efficacy of a drug called D-penicillamine.  Participants were measured at regular intervals for various symptoms associated with the disease, for example the presence of edema, and also had blood work done to provide additional clues as to the health of the individual. The study ended for each participant when they died, when they received a liver transplant, or when the study ended.
+
+## Questions
+
+I would like to address several questions here. First and foremost, I would like to ask if the studied drug improved outcomes in any meanginful way.  Next, what are some of the major sources of bias in this study.  Finally, given the data that was gathered from the participants, which measurements are the best overall predictors of long-term liver health.
+
+## Cleaning the Data
+
+The data was in good order, so cleaning consisted of mostly relabeling and converting data types into easier formats. 30 participants were removed because they only had a full set of baseline data collected. A summary of the cleaned data is provided below.
+
+```{r cleaning}
+library(survival)
+library(dplyr)
+data(pbc)
+df <- pbcseq
+n_participants <- max(df$id)
+
+#rename columns
+df <- df %>%
+  rename(treatment=trt, 
+         totalTime=futime, 
+         alkalinePhosphatase=alk.phos,
+         aspartateAminotransferase=ast,
+         bilirunbin=bili,
+         cholesteral=chol,
+         hepatomegaly=hepato,
+         plateletCount=platelet,
+         bloodClottingTime=protime
+         )
+
+#convert some variables to factors and give levels descriptive names, levels are in numerical order compared to those listed in the codebook
+
+df$sex <- factor(df$sex)
+levels(df$sex) <- c("Male","Female")
+
+df$treatment <- factor(df$treatment)
+levels(df$treatment) <- c("D-penicillmain","Placebo")
+
+df$status <- factor(df$status)
+levels(df$status) <- c("censored","transplant","dead")
+
+df$ascites <- factor(df$ascites,
+                     ordered=TRUE)
+levels(df$ascites) <- c("No Ascites","Ascites")
+
+df$edema <- factor(df$edema,
+                   ordered=TRUE)
+levels(df$edema) <- c("No Edema","Untreated or Successfully Treated","Resisted Treatement")
+
+df$hepatomegaly <- factor(df$hepatomegaly,
+                          ordered=TRUE)
+levels(df$hepatomegaly) <- c("NoHepatomegaly","Hepatomegaly")
+
+df$spiders <- factor(df$spiders,
+                     ordered=TRUE)
+levels(df$spiders) <- c("No Spiders","Spiders")
+
+df$stage <- factor(df$stage,
+                   ordered=TRUE)
+levels(df$stage) <- c("Stage 1","Stage 2", "Stage 3", "Stage 4")
+
+#Remove the cholesteral column since fully half the values are missing.  Remove 'extra visits' that contain NA values
+df <- df %>% 
+  select(-cholesteral) %>%
+  filter_all(all_vars(!is.na(.)))
+
+#add a column labeling the visit number, as well as specifying the day 0 visit as baseline and the last scheduled visit as last. Intermediate visits are labeled with a number.
+df <- df %>%
+  group_by(id) %>%
+  arrange(day) %>%
+  mutate(visit = rank(day)) %>%
+  mutate(visit = ifelse(visit==max(visit),"last",visit)) %>%
+  mutate(visit = ifelse(day==0,"baseline",visit)) %>%
+  arrange(id)
+
+df$visit <- as.factor(df$visit)
+
+#create a separate data.frame for dropouts
+df_dropouts <- df %>%
+  group_by(id) %>%
+  filter(n() <= 1)
+
+#purge data.frame of dropouts or those without baseline data
+df <- df %>%
+  group_by(id) %>%
+  filter(n() > 1) %>%
+  filter(min(day)==0)  %>%
+  ungroup(id)
+```
+
+## Exploratory Analysis
+Looking at the summary of the baseline data.  There are eight times as many women as men, however the disease affects women with a higher prevalence, so this may not introduce too much bias. However, some treatment/outcome combinations contain a very small number, or even no men. 
+
+Most participants remained in the study for 1-5 years, with some participants staying in for longer than the 10 year period of the trial. The majority of the participants had reached an advanced stage of the disease, stage 3 or stage 4, by the time they enrolled in the study. 
+
+```{r Exploratory Graphs,fig.cap= "Total time participants spent in study"}
+library(ggplot2)
+#Plot the length of time participants stayed in the study 
+time <- df %>%
+  filter(visit == "baseline") %>%
+  ggplot(aes(x=totalTime,color=sex)) +
+  geom_density()
+time
+```
+Now we look at a few representative graphs of the data. Fig. 1 shows that men stayed in the study on average a significantly shorter time, often by over two years. This combined with the small proportion of men may be a source of bias in the study.
+
+```{r Functions}
+#Create function to make violin plot of numeric column
+Explore_violin_plot <- function(df,yvalue){
+temp_df <- df %>%
+  filter(visit=="baseline" | visit == "last")
+
+Violin_plots <- ggplot(temp_df,aes_string(y = yvalue,x="sex",fill="visit")) +
+    geom_violin(draw_quantiles = c(0.25,0.5,0.75),trim=TRUE) + 
+    facet_grid(status~treatment)
+return(Violin_plots)
+}
+
+#Create function to make bar plot of factor column
+Explore_bar_plot <- function(df,fillvalue){
+temp_df <- df %>%
+  filter(visit=="baseline" | visit=="last")
+
+Bar_plot <- ggplot(temp_df,aes_string(x = "visit",fill=fillvalue)) +
+    geom_bar(position="fill") + 
+    facet_grid(status~treatment)
+return(Bar_plot)
+}
+
+#create list of numeric columns
+numeric_vars <- names(df %>% 
+                        select_if(is.numeric) %>% 
+                        select(-id,-day,-totalTime,-age)
+                      )
+
+#create list of factor columns
+factor_vars <- names(df %>% 
+                        select_if(is.factor) %>% 
+                        select(-status,-treatment,-visit,-sex)
+                      )
+```
+
+```{r,fig.cap="Change in Albumin Levels"}
+Explore_violin_plot(df,"albumin")
+```
+
+For the quantities obtained from blood work, I was looking for general trends noticeable from violin plots as in Fig. 2 for albumin levels.  The lines mark the median and the 2nd and 3rd quartile. I further divided the plots into groups that ended with different outcomes, treatments, and between men and women.  A general decrease in albumin levels can be seen in all groups which indicates a decrease in liver health.
+
+```{r,fig.cap="Proportion of participants exhibiting ascites"}
+Explore_bar_plot(df,"ascites")
+```
+
+The proportion of participants with various disease symptoms, such as the presence of ascites as shown in Fig. 3, increase over the course of the study, and this trend appears independent of which treatment group the participants were in.
+
+##Statistical Tests
+
+To look at these trends quantitatively, I calculated the difference between the last and baseline data for the blood work.  Then I ran a two sample t-test to see if there was a difference between the placebo and treated groups. In fact, the data shows that there is no difference between the two groups. Fig. 4 illustrates the two sample t-test for the quantities measured in blood work.  All 95% confidence intervals contain 0 as a possible difference between the two groups.
+
+```{r paired ttests}
+#create functions for use in summarize_at function
+t_stat <- function(y,x,df){
+  return(unlist(t.test(y~x,data=df)$statistic))
+}
+
+p_value <- function(y,x,df){
+  return(t.test(y~x,data=df)$p.value)
+}
+
+cilow <- function(y,x,df){
+  return(t.test(y~x,data=df)$conf.int[1])
+}
+
+cihigh <- function(y,x,df){
+  return(t.test(y~x,data=df)$conf.int[2])
+}
+
+  est <- function(y,x,df){
+  return(t.test(y~x,data=df)$estimate[2]-t.test(y~x,data=df)$estimate[1])
+}
+
+difference <- function(x,y){
+  x-y
+}
+
+#create dataframes of baseline and endpoint data
+last_test_df <- df %>%
+  filter(visit=="last")
+
+baseline_test_df <- df %>%
+  filter(visit=="baseline")
+
+#calculate cahnge between baseline and endpoint
+change_df <- baseline_test_df %>%
+  mutate_at(as.vector(numeric_vars),
+               funs(difference(last_test_df$.,baseline_test_df$.))) %>%
+  select_at(c("treatment",numeric_vars))
+
+#calculate ttests for numerical data
+ttests_change <- change_df %>%
+  summarize_at(as.vector(numeric_vars),
+               funs(t_stat(.,treatment,change_df),
+                    p_value(.,treatment,change_df),
+                    cilow(.,treatment,change_df),
+                    cihigh(.,treatment,change_df),
+                    est(.,treatment,change_df)
+                    )
+               )
+
+ttests <- data.frame(t_stat = t(ttests_change[1,1:6]),
+                               p_value = t(ttests_change[1,7:12]),
+                               cilow = t(ttests_change[1,13:18]),
+                               cihigh = t(ttests_change[1,19:24]),
+                               est = t(ttests_change[1,25:30]),
+                               row.names = c("bilirunbin",
+                                             "albumin",
+                                             "alkalinePhosphatase",
+                                             "aspartateAminotransferase",
+                                             "plateletCount",
+                                             "bloodClottingTime"
+                                             ))
+#select(ttests,est,cilow,cihigh)
+```
+For the symptoms and disease stage data, I looked at the relative risks of the placebo and treated group.  Fig. 5 shows that the 95% confidence interval in all cases contains a relative risk of 1, so that there is no difference between the placebo and treated groups.
+```{r rr tests,include=FALSE}
+library(fmsb)
+#create treatment and baseline/end groupings
+placebo_baseline_test_df <- df %>%
+  filter(visit=="baseline" & treatment == "Placebo") %>%
+  select_at(as.vector(factor_vars))
+
+placebo_last_test_df <- df %>%
+  filter(visit=="last" & treatment == "Placebo") %>%
+  select_at(as.vector(factor_vars))
+
+treated_baseline_test_df <- df %>%
+  filter(visit=="baseline" & treatment == "D-penicillmain") %>%
+  select_at(as.vector(factor_vars))
+
+treated_last_test_df <- df %>%
+  filter(visit=="last" & treatment == "D-penicillmain") %>%
+  select_at(as.vector(factor_vars))
+
+#count the number of changes that occured in each treatment group, make use of ordered factors 
+placebo_got_worse <- colSums(placebo_last_test_df > placebo_baseline_test_df)
+treated_got_worse <- colSums(treated_last_test_df > treated_baseline_test_df)
+
+#calculate risk ratios for each factor
+rr1 <- unlist(riskratio(treated_got_worse[1],placebo_got_worse[1],142,136)[1:3])
+rr2 <- unlist(riskratio(treated_got_worse[2],placebo_got_worse[2],142,136)[1:3])
+rr3 <- unlist(riskratio(treated_got_worse[3],placebo_got_worse[3],142,136)[1:3])
+rr4 <- unlist(riskratio(treated_got_worse[4],placebo_got_worse[4],142,136)[1:3])
+rr5 <- unlist(riskratio(treated_got_worse[5],placebo_got_worse[5],142,136)[1:3])
+#put riskratios into dataframe for plotting
+riskratios <- t(data.frame(ascites = rr1,
+                         hepatemegaly = rr2,
+                         spiders = rr3,
+                         edema = rr4,
+                         stage = rr5,
+                         row.names = c("p-value","cilow","cihigh","estimate")
+                         ))
+riskratios <- as.data.frame(riskratios)
+#select(riskratios,estimate,cilow,cihigh)
+```
+
+```{r testgraphs,fig.cap="t-tests for blood work"}
+#create plot 
+ttg <- ggplot(ttests, aes(x=c("albumin","ALP","ASA","bilirunbin","BCT","PC"),y=est,ymin=cilow,ymax=cihigh)) +
+  geom_pointrange() +
+  coord_cartesian(ylim = c(-30,30)) +
+  labs(x = "variable",y = "Difference in treatment groups",title="t-tests") +
+  geom_abline(slope=0,intercept = 0,color = "red")
+ttg
+```
+```{r,fig.cap="Risk Ratios for disease symptoms"}
+rrg <- ggplot(as.data.frame(riskratios),aes(x=as.vector(row.names(riskratios)),y=estimate,ymin=cilow,ymax=cihigh)) +
+  geom_pointrange() + 
+  labs(x = "variable",y = "Risk Ratios",title="Risk Ratios") +
+  geom_abline(slope = 0,intercept = 1, color = "red") 
+rrg
+```
+
+
+##Linear Model
+Finally, a I made a linear model using logistic regression to inspect what were the best predictors of survival from baseline data.  I assigned both death and transplant to the case "liver death," since in both cases the liver failed.  I assumed censored meant the participants survived the study.
+
+Unsurprisingly, time in the study was the strongest predictor, since participants experiencing liver death are removed from the study.  Therefore, I removed the variables related to the length of time the participant remained in the study.
+
+Strong predictors of long term liver health from baseline data were decreased bilirunbin and blood clotting time.  Women had a higher probability of men to avoid liver death over the course of the study, and perhaps unsurprisingly later stages of the disease at baseline lead to a greater likelihood of death of transplant. Most other symptoms of the disease were not significant predictors, and the treatment group was a also a poor predictor with a small slope and high p-value.
+
+I will look at the linear model and its validation in depth in a separate post.
+```{r linear model, include = FALSE}
+#Create "liver death" column and scale numeric data
+log_df <- df %>%
+  mutate(liverDeath = ifelse(status=="censored",1,0)) %>%
+  filter(visit =="baseline") %>%
+  select(-id,-visit,-status,-totalTime,-day) %>%
+  mutate_at(as.vector(numeric_vars),
+            funs(scale(.)))
+
+#build and summarize model
+log_glm <- glm(liverDeath~.,data = log_df,family="binomial")
+summary(log_glm)
+```
+##Conclusion
+To answer my original questions.  I believe from my analysis, the drug was ultimately ineffective at improving outcomes for most participants, failing to produce significant differences in outcomes between treatment groups.  I ignored intermediate data between the first and last visit, so there is a possibility that the drug could have short term benefits to the patient.  
+
+The study in question had very few men compared to women, and many participants were already in an advanced stage of the disease.  Both of these could be sources of bias in the study.  
+
+Finally, there were a small number of significant predictors in the baseline data for long term liver health. The model used to generate predictors, however, reinforces the fact that the treatment was unrelated to long term liver health.
