@@ -9,4 +9,4 @@ A portfolio of my data science projects.
 
 - MiniProjects: A number of notebooks dedicated to various projects such as cluster analysis, API calls, Naive Bayes, etc
 
--PBC Analysis: Exploratory analysis and predictive model for a public medical data set.
+- PBC Analysis: Exploratory analysis and predictive model for a public clinical trial data set.
