@@ -3,13 +3,13 @@
 - EDA - A look at exploratory data analysis with three different data sets:
   - Hospital Readmissions
   - Human Body Temperature
-  - Workplace discrimination
+  - Racial discrimination in job applications
 - Clustering - Using KNN and other clustering algorithms to analyze wine data
 - JSON data wrangling - Looking at country GDP data stored in the JSON format
-- Linear regression - Exploring
-- Logistic regression - Exploring 
+- Linear regression - Exploring housing prices
+- Logistic regression - Exploring heights and weights by gender
 - Naive Bayes - Classifying movie reviews as favorable or unfavorable with NLP tools
-- SQL - SQL queries to access a data table for a country club.
+- SQL - SQL queries to access a data table for a country club
 - Challenges - Realistic take-home challenges analyzing:
   - Forcasting demand and A/B testing for a Rideshare company
   - Customer segmentation for an short-term rental company
