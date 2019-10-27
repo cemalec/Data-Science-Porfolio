@@ -1,10 +1,15 @@
 ### Mini-projects are small notebooks exploring specific topics.
-- API
-- EDA
-- Clustering
-- JSON data wrangling
-- Linear regression
-- Logistic regression
-- Naive Bayes
-- SQL
-- Challenges
+- API - A notebook making use of the quandl API to analyze financial data
+- EDA - A look at exploratory data analysis with three different data sets:
+  - Hospital Readmissions
+  - Human Body Temperature
+  - Workplace discrimination
+- Clustering - Using KNN and other clustering algorithms to analyze wine data
+- JSON data wrangling - Looking at country GDP data stored in the JSON format
+- Linear regression - Exploring
+- Logistic regression - Exploring 
+- Naive Bayes - Classifying movie reviews as favorable or unfavorable with NLP tools
+- SQL - SQL queries to access a data table for a country club.
+- Challenges - Realistic take-home challenges analyzing:
+  - Forcasting demand and A/B testing for a Rideshare company
+  - Customer segmentation for an short-term rental company
