@@ -13,4 +13,4 @@
 - Challenges - Realistic take-home challenges analyzing:
   - Forcasting demand and A/B testing for a Rideshare company
   - Customer segmentation for an short-term rental company
-- Spark, PySpark, and DataBricks: A Databricks Notebook on marital status can be found (here)[https://databricks-prod-cloudfront.cloud.databricks.com/public/4027ec902e239c93eaaa8714f173bcfc/1538471128858812/2194808101746053/7394888737744352/latest.html]. It utilizes Spark through PySpark
+- Spark, PySpark, and DataBricks: A Databricks Notebook on marital status can be found [here](https://databricks-prod-cloudfront.cloud.databricks.com/public/4027ec902e239c93eaaa8714f173bcfc/1538471128858812/2194808101746053/7394888737744352/latest.html). It utilizes Spark through PySpark
