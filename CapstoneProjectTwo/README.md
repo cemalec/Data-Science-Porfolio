@@ -1,4 +1,4 @@
-# This is a project attempting to segment mitochondria from publicly available SEM/FIB imaging data.
+# This is a project that segments mitochondria from publicly available SEM/FIB imaging data.
 
 ## The [Docs](https://github.com/cemalec/Data-Science-Porfolio/tree/master/Capstone%20ProjectTwo/Docs) folder leads to explanatory documents including a slidedeck while
 ## The [Code](https://github.com/cemalec/Data-Science-Porfolio/tree/master/Capstone%20ProjectTwo/Code) folder leads to annotated Jupyter notebooks containing the code used to build the models
